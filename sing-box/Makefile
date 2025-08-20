@@ -18,6 +18,7 @@ PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/sagernet/sing-box
 GO_PKG_BUILD_PKG:=$(GO_PKG)/cmd/sing-box
+
 GO_PKG_LDFLAGS_X:=$(GO_PKG)/constant.Version=$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
@@ -25,15 +26,22 @@ include ../../lang/golang/golang-package.mk
 
 PKG_VARIANT ?= full
 
-# === Build flags per variant ===
 ifeq ($(PKG_VARIANT),lite)
-GO_PKG_TAGS :=
+GO_PKG_TAGS := \
+	with_dhcp \
+	with_utls 
 else ifeq ($(PKG_VARIANT),base)
 GO_PKG_TAGS := \
+	with_acme \
+	with_clash_api \
+	with_dhcp \
+	with_embedded_tor \
+	with_grpc \
+	with_gvisor \
 	with_quic \
 	with_utls \
-	with_gvisor \
-	with_clash_api
+	with_v2ray_api \
+	with_wireguard
 else
 GO_PKG_TAGS:=$(subst $(space),$(comma),$(strip \
 	$(if $(CONFIG_SINGBOX_WITH_ACME),with_acme) \
@@ -50,50 +58,49 @@ GO_PKG_TAGS:=$(subst $(space),$(comma),$(strip \
 ))
 endif
 
-# === Common config options ===
 define Package/sing-box/config
-  menu "Select build options"
-	depends on PACKAGE_sing-box
+	menu "Select build options"
+		depends on PACKAGE_sing-box
 
-	config SINGBOX_WITH_ACME
-		bool "Build with ACME TLS certificate issuer support"
+		config SINGBOX_WITH_ACME
+			bool "Build with ACME TLS certificate issuer support"
 
-	config SINGBOX_WITH_CLASH_API
-		bool "Build with Clash API support"
-		default y
+		config SINGBOX_WITH_CLASH_API
+			bool "Build with Clash API support"
+			default y
 
-	config SINGBOX_WITH_DHCP
-		bool "Build with DHCP support"
+		config SINGBOX_WITH_DHCP
+			bool "Build with DHCP support, see DHCP DNS transport."
 
-	config SINGBOX_WITH_EMBEDDED_TOR
-		bool "Build with embedded Tor support"
+		config SINGBOX_WITH_EMBEDDED_TOR
+			bool "Build with embedded Tor support"
 
-	config SINGBOX_WITH_GRPC
-		bool "Build with standard gRPC support"
+		config SINGBOX_WITH_GRPC
+			bool "Build with standard gRPC support"
 
-	config SINGBOX_WITH_GVISOR
-		bool "Build with gVisor support"
-		default y
+		config SINGBOX_WITH_GVISOR
+			bool "Build with gVisor support"
+			default y
 
-	config SINGBOX_WITH_QUIC
-		bool "Build with QUIC support"
-		default y
+		config SINGBOX_WITH_QUIC
+			bool "Build with QUIC support"
+			default y
 
-	config SINGBOX_WITH_TAILSCALE
-		bool "Build with Tailscale support"
-		default y
+		config SINGBOX_WITH_TAILSCALE
+			bool "Build with Tailscale support"
+			default y
 
-	config SINGBOX_WITH_UTLS
-		bool "Build with uTLS support for TLS outbound"
-		default y
+		config SINGBOX_WITH_UTLS
+			bool "Build with uTLS support for TLS outbound"
+			default y
 
-	config SINGBOX_WITH_V2RAY_API
-		bool "Build with V2Ray API support"
+		config SINGBOX_WITH_V2RAY_API
+			bool "Build with V2Ray API support"
 
-	config SINGBOX_WITH_WIREGUARD
-		bool "Build with WireGuard support"
-		default y
-  endmenu
+		config SINGBOX_WITH_WIREGUARD
+			bool "Build with WireGuard support"
+			default y
+	endmenu
 endef
 
 PKG_CONFIG_DEPENDS:= \
@@ -109,27 +116,35 @@ PKG_CONFIG_DEPENDS:= \
 	CONFIG_SINGBOX_WITH_V2RAY_API \
 	CONFIG_SINGBOX_WITH_WIREGUARD
 
-# === Package: sing-box-lite ===
 define Package/sing-box-lite
-  TITLE:=Sing-box minimal binary (no features)
+  TITLE:=The universal proxy platform
   SECTION:=net
   CATEGORY:=Network
   URL:=https://sing-box.sagernet.org
-  DEPENDS:=$(GO_ARCH_DEPENDS)
+  DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle +kmod-inet-diag +kmod-tun
+  USERID:=sing-box=5566:sing-box=5566
 endef
 
 define Package/sing-box-lite/description
-  This is the smallest possible build of sing-box with no features enabled.
+  Sing-box is a universal proxy platform which supports hysteria, SOCKS, Shadowsocks,
+  ShadowTLS, Tor, trojan, VLess, VMess, WireGuard and so on. (without Acme, Clash, QUIC, Tailscale, v2Ray, WireGuard)
 endef
 
 define Package/sing-box-lite/install
 	$(INSTALL_DIR) $(1)/usr/bin/
 	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/sing-box $(1)/usr/bin/sing-box
+
+	$(INSTALL_DIR) $(1)/etc/sing-box
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/release/config/config.json $(1)/etc/sing-box
+
+	$(INSTALL_DIR) $(1)/etc/config/
+	$(INSTALL_CONF) ./files/sing-box.conf $(1)/etc/config/sing-box
+	$(INSTALL_DIR) $(1)/etc/init.d/
+	$(INSTALL_BIN) ./files/sing-box.init $(1)/etc/init.d/sing-box
 endef
 
-# === Package: sing-box-base ===
 define Package/sing-box-base
-  TITLE:=Sing-box binary with basic features
+  TITLE:=The universal proxy platform
   SECTION:=net
   CATEGORY:=Network
   URL:=https://sing-box.sagernet.org
@@ -138,11 +153,13 @@ define Package/sing-box-base
 endef
 
 define Package/sing-box-base/description
-  This package provides the sing-box binary and minimal configuration.
+  Sing-box is a universal proxy platform which supports hysteria, SOCKS, Shadowsocks,
+  ShadowTLS, Tor, trojan, VLess, VMess, WireGuard and so on. (without Tailscale)
 endef
 
 define Package/sing-box-base/conffiles
-/etc/sing-box/config.json
+/etc/config/sing-box
+/etc/sing-box/
 endef
 
 define Package/sing-box-base/install
@@ -150,35 +167,46 @@ define Package/sing-box-base/install
 	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/sing-box $(1)/usr/bin/sing-box
 
 	$(INSTALL_DIR) $(1)/etc/sing-box
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/release/config/config.json $(1)/etc/sing-box/
-endef
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/release/config/config.json $(1)/etc/sing-box
 
-# === Package: sing-box ===
-define Package/sing-box
-  TITLE:=Sing-box service and init integration
-  SECTION:=net
-  CATEGORY:=Network
-  URL:=https://sing-box.sagernet.org
-  DEPENDS:=sing-box-base
-endef
-
-define Package/sing-box/description
-  This package provides the UCI integration and init.d script for sing-box.
-endef
-
-define Package/sing-box/conffiles
-/etc/config/sing-box
-endef
-
-define Package/sing-box/install
 	$(INSTALL_DIR) $(1)/etc/config/
 	$(INSTALL_CONF) ./files/sing-box.conf $(1)/etc/config/sing-box
-
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) ./files/sing-box.init $(1)/etc/init.d/sing-box
 endef
 
-# === Build all variants ===
+define Package/sing-box
+  TITLE:=The universal proxy platform
+  SECTION:=net
+  CATEGORY:=Network
+  URL:=https://sing-box.sagernet.org
+  DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle +kmod-inet-diag +kmod-tun
+  USERID:=sing-box=5566:sing-box=5566
+endef
+
+define Package/sing-box/description
+  Sing-box is a universal proxy platform which supports hysteria, SOCKS, Shadowsocks,
+  ShadowTLS, Tor, trojan, VLess, VMess, WireGuard and so on.
+endef
+
+define Package/sing-box/conffiles
+/etc/config/sing-box
+/etc/sing-box/
+endef
+
+define Package/sing-box/install
+	$(INSTALL_DIR) $(1)/usr/bin/
+	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/sing-box $(1)/usr/bin/sing-box
+
+	$(INSTALL_DIR) $(1)/etc/sing-box
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/release/config/config.json $(1)/etc/sing-box
+
+	$(INSTALL_DIR) $(1)/etc/config/
+	$(INSTALL_CONF) ./files/sing-box.conf $(1)/etc/config/sing-box
+	$(INSTALL_DIR) $(1)/etc/init.d/
+	$(INSTALL_BIN) ./files/sing-box.init $(1)/etc/init.d/sing-box
+endef
+
 $(eval PKG_VARIANT:=lite)
 $(eval $(call BuildPackage,sing-box-lite))
 
