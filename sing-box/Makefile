@@ -27,21 +27,27 @@ include ../../packages/lang/golang/golang-package.mk
 PKG_VARIANT ?= full
 
 ifeq ($(PKG_VARIANT),lite)
-GO_PKG_TAGS := \
-	with_dhcp \
-	with_utls 
+GO_PKG_TAGS:=$(subst $(space),$(comma),$(strip \
+	$(if $(CONFIG_SINGBOX_WITH_DHCP),with_dhcp) \
+	$(if $(CONFIG_SINGBOX_WITH_GRPC),with_grpc) \
+	$(if $(CONFIG_SINGBOX_WITH_GVISOR),with_gvisor) \
+	$(if $(CONFIG_SINGBOX_WITH_QUIC),with_quic) \
+	$(if $(CONFIG_SINGBOX_WITH_UTLS),with_utls) \
+	$(if $(CONFIG_SINGBOX_WITH_V2RAY_API),with_v2ray_api) \
+))
 else ifeq ($(PKG_VARIANT),base)
-GO_PKG_TAGS := \
-	with_acme \
-	with_clash_api \
-	with_dhcp \
-	with_embedded_tor \
-	with_grpc \
-	with_gvisor \
-	with_quic \
-	with_utls \
-	with_v2ray_api \
-	with_wireguard
+GO_PKG_TAGS:=$(subst $(space),$(comma),$(strip \
+	$(if $(CONFIG_SINGBOX_WITH_ACME),with_acme) \
+	$(if $(CONFIG_SINGBOX_WITH_CLASH_API),with_clash_api) \
+	$(if $(CONFIG_SINGBOX_WITH_DHCP),with_dhcp) \
+	$(if $(CONFIG_SINGBOX_WITH_EMBEDDED_TOR),with_embedded_tor) \
+	$(if $(CONFIG_SINGBOX_WITH_GRPC),with_grpc) \
+	$(if $(CONFIG_SINGBOX_WITH_GVISOR),with_gvisor) \
+	$(if $(CONFIG_SINGBOX_WITH_QUIC),with_quic) \
+	$(if $(CONFIG_SINGBOX_WITH_UTLS),with_utls) \
+	$(if $(CONFIG_SINGBOX_WITH_V2RAY_API),with_v2ray_api) \
+	$(if $(CONFIG_SINGBOX_WITH_WIREGUARD),with_wireguard) \
+))
 else
 GO_PKG_TAGS:=$(subst $(space),$(comma),$(strip \
 	$(if $(CONFIG_SINGBOX_WITH_ACME),with_acme) \
